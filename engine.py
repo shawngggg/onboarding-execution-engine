@@ -50,7 +50,7 @@ class Case:
         is_broker_dealer,        # flips suitability/conduct analysis
     ):
         self.name = name
-        self.date_of_birth = country_of_birth
+        self.date_of_birth = date_of_birth
         self.citizenship_status = citizenship_status
         self.residential_address = residential_address
         self.mailing_address = mailing_address
@@ -61,18 +61,47 @@ class Case:
         self.investment_experience = investment_experience
         self.account_purpose = account_purpose
         self.is_broker_dealer = is_broker_dealer
+        self.country_of_birth = country_of_birth
+
+# --- the rule library (policy-as-code) ---
+# Each rule carries its own condition (field/operator/value)
+# and its own outcome (what Decision to return when it matches).
+RULES = [
+    {
+        "rule_id": "CIP-001",
+        "field": "citizenship_status",
+        "operator": "equals",
+        "value": "non_resident_alien",
+        "disposition": Disposition.REFER,
+        "reason": "Non-resident alien requires additional CIP documentation",
+        "required_documents": ["passport", "W-8BEN"],
+    },
+ {
+        "rule_id": "OFAC-001",
+        "field": "country_of_birth",
+        "operator": "equals",
+        "value": "Iran",
+        "disposition": Disposition.ESCALATE,
+        "reason": "Country of birth in sanctioned jurisdiction; escalate for sanctions review",
+        "required_documents": ["enhanced_due_diligence_review"],
+    },
+    ]
 
 def evaluate(case):
-    if case.citizenship_status == "non_resident_alien":
-        return Decision(
-            disposition=Disposition.REFER,
-            reason="Non-resident alien requires additional CIP documentation",
-            rule_id="CIP-001",
-            required_documents=["passport", "W-8BEN"],
-        )
+    # Go through the rule library, in order, and apply the first rule that matches.
+    for rule in RULES:
+        case_value = getattr(case, rule["field"])   # read the case's field this rule names
+        if rule["operator"] == "equals" and case_value == rule["value"]:
+            return Decision(
+                disposition=rule["disposition"],
+                reason=rule["reason"],
+                rule_id=rule["rule_id"],
+                required_documents=rule["required_documents"],
+            )
+    # No rule matched → default clear.
     return Decision(
         disposition=Disposition.CLEAR,
-        reason="US person; no additional CIP documentation required",
+        reason="No matching rule; standard onboarding",
         rule_id="CIP-000",
         required_documents=[],
     )
@@ -127,3 +156,27 @@ print(kenji.name, "->", kenji_decision.disposition)
 print("   reason:", kenji_decision.reason)
 print("   rule:", kenji_decision.rule_id)
 print("   documents needed:", kenji_decision.required_documents)
+
+farid = Case(
+    name="Farid Hosseini",
+    date_of_birth="1980-05-01",
+    country_of_birth="Iran",
+    citizenship_status="citizen",
+    residential_address="500 Main St, Salt Lake City, UT 84101",
+    mailing_address="500 Main St, Salt Lake City, UT 84101",
+    occupation="Physician",
+    employer="Regional Hospital",
+    source_of_funds="Employment income",
+    source_of_wealth="Medical practice",
+    investment_experience={
+        "cash_equities": ProductExperience(years=8, trades_per_year=20),
+    },
+    account_purpose="Retirement investing",
+    is_broker_dealer=False,
+)
+
+farid_decision = evaluate(farid)
+print(farid.name, "->", farid_decision.disposition)
+print("   reason:", farid_decision.reason)
+print("   rule:", farid_decision.rule_id)
+print("   documents needed:", farid_decision.required_documents)
