@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Onboarding Execution Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #eef1f4; --surface: #ffffff; --ink: #1f3864; --text: #1b2230; --muted: #566072;
+  --line: #d4dae2; --line-strong: #b9c1cc; --field: #ffffff; --focus: #2f5aa8;
+  --clear: #22704a; --refer: #9a5f0e; --escalate: #b3410e; --block: #9b1c1c; --error: #b3261e;
+  --clear-bg: #e5f2ea; --refer-bg: #f7eedd; --escalate-bg: #f8e6dc; --block-bg: #f6e1e1;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  box-sizing: border-box; color-scheme: light;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark;
+    --paper: #12171f; --surface: #1a212c; --ink: #9db8ea; --text: #e6eaf0; --muted: #a3adbd;
+    --line: #2c3544; --line-strong: #3d4859; --field: #141a23; --focus: #8fb0ee;
+    --clear: #6fcf97; --refer: #e3b25f; --escalate: #f08a5d; --block: #ef7c7c; --error: #ff8a80;
+    --clear-bg: #16301f; --refer-bg: #33280f; --escalate-bg: #3a2014; --block-bg: #3a1a1a;
+  }
+}
+:root[data-theme="dark"] { color-scheme: dark;
+  --paper: #12171f; --surface: #1a212c; --ink: #9db8ea; --text: #e6eaf0; --muted: #a3adbd;
+  --line: #2c3544; --line-strong: #3d4859; --field: #141a23; --focus: #8fb0ee;
+  --clear: #6fcf97; --refer: #e3b25f; --escalate: #f08a5d; --block: #ef7c7c; --error: #ff8a80;
+  --clear-bg: #16301f; --refer-bg: #33280f; --escalate-bg: #3a2014; --block-bg: #3a1a1a;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body { margin: 0; background: var(--paper); color: var(--text); font: 400 16px/1.55 var(--sans); }
+a { color: var(--ink); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+header.site { padding: 40px 0 8px; }
+header.site h1 { font: 600 clamp(2rem, 4.4vw, 3.1rem)/1.05 var(--serif); color: var(--ink); margin: 0 0 12px; letter-spacing: -0.01em; }
+header.site p { margin: 0; max-width: 66ch; color: var(--muted); }
+header.site .fine { font-size: 0.85rem; margin-top: 10px; }
+
+nav.tabs { display: flex; gap: 4px; margin-top: 28px; border-bottom: 1px solid var(--line-strong); overflow-x: auto; scrollbar-width: thin; }
+nav.tabs button { appearance: none; background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  padding: 12px 16px; font: 600 0.95rem var(--sans); color: var(--muted); cursor: pointer; white-space: nowrap; border-radius: 6px 6px 0 0; }
+nav.tabs button:hover { color: var(--text); }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+nav.tabs .count { display: inline-block; min-width: 1.4em; margin-left: 6px; padding: 0 6px; border-radius: 999px;
+  background: var(--line); color: var(--text); font-size: 0.78rem; font-weight: 700; text-align: center; }
+
+main { padding: 28px 0 64px; }
+[role="tabpanel"][hidden] { display: none; }
+.lede { max-width: 70ch; color: var(--muted); margin: 0 0 22px; }
+h2 { font: 600 1.35rem/1.25 var(--serif); color: var(--ink); margin: 0 0 6px; }
+h3 { font: 700 0.95rem/1.3 var(--sans); margin: 22px 0 10px; color: var(--text); }
+
+/* Intake layout */
+.split { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 32px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 24px; }
+.sticky { position: sticky; top: calc(16px + env(safe-area-inset-top, 0px)); }
+fieldset { border: 0; margin: 0 0 8px; padding: 0; }
+legend { font: 600 1.05rem var(--serif); color: var(--ink); padding: 0; margin: 0 0 12px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.full { grid-column: 1 / -1; }
+.field label, .field .label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 5px; }
+.field .opt { font-weight: 400; color: var(--muted); }
+input[type="text"], input[type="date"], input[type="number"], select {
+  width: 100%; font: 400 0.98rem var(--sans); color: var(--text); background: var(--field);
+  border: 1px solid var(--line-strong); border-radius: 6px; padding: 9px 11px; min-height: 42px; }
+input:disabled, select:disabled { opacity: 0.55; cursor: not-allowed; }
+input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--error); box-shadow: 0 0 0 1px var(--error); }
+.hint { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+.err { font-size: 0.84rem; color: var(--error); margin-top: 4px; font-weight: 500; }
+.err:empty { display: none; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; margin-top: 6px; }
+.radios { display: flex; gap: 18px; margin-top: 4px; }
+.radios label { font-weight: 400; display: flex; gap: 6px; align-items: center; }
+.divider { border: 0; border-top: 1px solid var(--line); margin: 22px 0; }
+
+.exp-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.exp-table th, .exp-table td { text-align: left; padding: 6px 8px 6px 0; vertical-align: top; }
+.exp-table th { font-weight: 600; color: var(--muted); font-size: 0.82rem; }
+.exp-table td:first-child { padding-top: 15px; font-weight: 500; }
+.exp-table input { max-width: 120px; }
+
+.actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
+button.primary, button.secondary { font: 600 0.95rem var(--sans); border-radius: 6px; padding: 11px 18px; cursor: pointer; min-height: 44px; }
+button.primary { background: var(--ink); color: var(--surface); border: 1px solid var(--ink); }
+button.primary:hover { filter: brightness(1.12); }
+button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
+button.secondary:hover { border-color: var(--ink); }
+button.small { padding: 6px 12px; min-height: 36px; font-size: 0.86rem; }
+
+.summary { border: 1px solid var(--error); background: color-mix(in srgb, var(--error) 8%, var(--surface)); border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; }
+.summary p { margin: 0 0 6px; font-weight: 600; }
+.summary ul { margin: 0; padding-left: 18px; }
+.summary a { color: var(--error); }
+
+/* Case file */
+.casefile { position: relative; }
+.casefile .who { font: 600 1.25rem/1.25 var(--serif); color: var(--ink); margin: 0; }
+.casefile .meta { color: var(--muted); font-size: 0.88rem; margin: 2px 0 0; }
+.stamp { display: inline-block; margin: 18px 0 8px; padding: 6px 18px; border: 3px double currentColor; border-radius: 6px;
+  font: 800 1.6rem/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; transform: rotate(-3deg); }
+.stamp.fresh { animation: stampIn 380ms cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes stampIn { from { transform: rotate(-3deg) scale(1.45); opacity: 0; } to { transform: rotate(-3deg) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .stamp.fresh { animation: none; } }
+.d-clear { color: var(--clear); } .d-refer { color: var(--refer); } .d-escalate { color: var(--escalate); } .d-block { color: var(--block); }
+.bg-clear { background: var(--clear-bg); } .bg-refer { background: var(--refer-bg); } .bg-escalate { background: var(--escalate-bg); } .bg-block { background: var(--block-bg); }
+.ruling { font: 400 1.12rem/1.5 var(--serif); margin: 8px 0 18px; }
+dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; font-size: 0.92rem; }
+dl.facts dt { color: var(--muted); font-weight: 600; }
+dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+.docs { margin: 0; padding-left: 18px; }
+.suit { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 4px; }
+.suit th, .suit td { text-align: left; padding: 7px 10px 7px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.suit th { color: var(--muted); font-weight: 600; border-top: 0; }
+.pill { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.warnings { color: var(--refer); font-size: 0.9rem; }
+details.json { margin-top: 18px; }
+details.json summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+pre { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 14px; overflow-x: auto;
+  font: 0.8rem/1.5 var(--mono); max-height: 420px; margin: 10px 0 0; }
+.empty { color: var(--muted); border: 1px dashed var(--line-strong); border-radius: 10px; padding: 28px; text-align: center; }
+
+/* Tables for samples, rules, audit */
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table.data { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 640px; }
+table.data th, table.data td { text-align: left; padding: 12px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+table.data thead th { border-top: 0; color: var(--muted); font-weight: 600; font-size: 0.84rem; background: var(--surface); }
+table.data td.name { font-weight: 600; white-space: nowrap; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.toolbar { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; margin-bottom: 18px; }
+.toolbar .field { min-width: 200px; }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+tr.off td { color: var(--muted); }
+.audit-list details { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; }
+.audit-list summary { cursor: pointer; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.audit-list summary .s-name { font-weight: 600; }
+.audit-list summary .s-meta { color: var(--muted); font-size: 0.88rem; }
+.copied { color: var(--clear); font-size: 0.85rem; margin-left: 10px; }
+footer { color: var(--muted); font-size: 0.85rem; padding: 0 0 40px; }
+
+@media (max-width: 900px) {
+  .split, .compare { grid-template-columns: 1fr; }
+  .sticky { position: static; }
+}
+@media (max-width: 560px) {
+  .wrap { padding: 0 16px; }
+  .grid2 { grid-template-columns: 1fr; }
+  .panel { padding: 18px; }
+  .exp-table input { max-width: 90px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="site">
+    <h1>Onboarding Execution Engine</h1>
+    <p>Run an applicant through versioned, cited onboarding rules and see the decision, the rule and regulation behind it, and the audit record it leaves.</p>
+    <p class="fine">A learning project by <a href="https://www.linkedin.com/in/shawngh" target="_blank" rel="noopener">Shawn Ghodrati</a>. Rules and citations are illustrative and are not legal advice. Source on <a href="https://github.com/shawngggg" target="_blank" rel="noopener">GitHub</a>.</p>
+    <nav class="tabs" role="tablist" aria-label="Engine views">
+      <button role="tab" id="tab-intake" aria-controls="p-intake" aria-selected="true">Live intake</button>
+      <button role="tab" id="tab-samples" aria-controls="p-samples" aria-selected="false" tabindex="-1">Sample cases</button>
+      <button role="tab" id="tab-versions" aria-controls="p-versions" aria-selected="false" tabindex="-1">Versioning</button>
+      <button role="tab" id="tab-rules" aria-controls="p-rules" aria-selected="false" tabindex="-1">Rule library</button>
+      <button role="tab" id="tab-audit" aria-controls="p-audit" aria-selected="false" tabindex="-1">Audit log <span class="count" id="audit-count">0</span></button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- LIVE INTAKE -->
+    <section role="tabpanel" id="p-intake" aria-labelledby="tab-intake">
+      <p class="lede">Enter an applicant the way an intake analyst would. Each field is checked as you go; the engine runs only once the application is complete and valid.</p>
+      <div class="split">
+        <form id="intake" class="panel" novalidate>
+          <div id="summary" class="summary" hidden tabindex="-1"></div>
+
+          <fieldset>
+            <legend>Identity</legend>
+            <div class="grid2">
+              <div class="field full"><label for="f-name">Full legal name</label>
+                <input type="text" id="f-name" name="name" autocomplete="name" aria-describedby="e-name"><div class="err" id="e-name"></div></div>
+              <div class="field"><label for="f-dob">Date of birth</label>
+                <input type="date" id="f-dob" name="date_of_birth" aria-describedby="e-dob"><div class="err" id="e-dob"></div></div>
+              <div class="field"><label for="f-country">Country of birth</label>
+                <input type="text" id="f-country" name="country_of_birth" list="countries" autocomplete="off" aria-describedby="e-country"><div class="err" id="e-country"></div></div>
+              <div class="field full"><label for="f-cit">Citizenship status</label>
+                <select id="f-cit" name="citizenship_status" aria-describedby="e-cit h-cit">
+                  <option value="">Select a status</option>
+                  <option value="citizen">U.S. citizen</option>
+                  <option value="green_card">Permanent resident (green card)</option>
+                  <option value="non_resident_alien">Non-resident alien</option>
+                </select>
+                <div class="hint" id="h-cit">Non-resident aliens don't need a U.S. state.</div><div class="err" id="e-cit"></div></div>
+            </div>
+          </fieldset>
+
+          <hr class="divider">
+          <fieldset>
+            <legend>Address</legend>
+            <div class="grid2">
+              <div class="field full"><label for="f-res">Residential address</label>
+                <input type="text" id="f-res" name="residential_address" autocomplete="street-address" aria-describedby="e-res"><div class="err" id="e-res"></div></div>
+              <div class="field full">
+                <label class="check"><input type="checkbox" id="f-same" checked> Mailing address is the same</label>
+              </div>
+              <div class="field full" id="mail-wrap" hidden><label for="f-mail">Mailing address</label>
+                <input type="text" id="f-mail" name="mailing_address" aria-describedby="e-mail"><div class="err" id="e-mail"></div></div>
+              <div class="field"><label for="f-state">State of residence</label>
+                <select id="f-state" name="state_of_residence" aria-describedby="e-state"></select><div class="err" id="e-state"></div></div>
+            </div>
+          </fieldset>
+
+          <hr class="divider">
+          <fieldset>
+            <legend>Economic profile</legend>
+            <div class="grid2">
+              <div class="field"><label for="f-occ">Occupation</label>
+                <input type="text" id="f-occ" name="occupation" aria-describedby="e-occ"><div class="err" id="e-occ"></div></div>
+              <div class="field"><label for="f-emp">Employer</label>
+                <input type="text" id="f-emp" name="employer" aria-describedby="e-emp"><div class="err" id="e-emp"></div></div>
+              <div class="field"><label for="f-sof">Source of funds</label>
+                <input type="text" id="f-sof" name="source_of_funds" aria-describedby="e-sof"><div class="err" id="e-sof"></div></div>
+              <div class="field"><label for="f-sow">Source of wealth</label>
+                <input type="text" id="f-sow" name="source_of_wealth" aria-describedby="e-sow"><div class="err" id="e-sow"></div></div>
+              <div class="field full"><label for="f-purpose">Account purpose</label>
+                <input type="text" id="f-purpose" name="account_purpose" aria-describedby="e-purpose"><div class="err" id="e-purpose"></div></div>
+              <div class="field full"><span class="label" id="l-bd">Associated with a broker-dealer?</span>
+                <div class="radios" role="radiogroup" aria-labelledby="l-bd" aria-describedby="e-bd">
+                  <label><input type="radio" name="is_broker_dealer" value="no"> No</label>
+                  <label><input type="radio" name="is_broker_dealer" value="yes"> Yes</label>
+                </div><div class="err" id="e-bd"></div></div>
+            </div>
+          </fieldset>
+
+          <hr class="divider">
+          <fieldset>
+            <legend>Investment experience</legend>
+            <p class="hint" style="margin:-4px 0 8px">Leave at 0 for products the applicant hasn't traded. Years can't exceed the applicant's age.</p>
+            <div style="overflow-x:auto"><table class="exp-table" id="exp-table">
+              <thead><tr><th scope="col">Product</th><th scope="col">Years</th><th scope="col">Trades per year</th></tr></thead>
+              <tbody></tbody></table></div>
+            <div class="err" id="e-exp"></div>
+          </fieldset>
+
+          <hr class="divider">
+          <div class="grid2">
+            <div class="field"><label for="f-asof">Evaluation date</label>
+              <input type="date" id="f-asof" aria-describedby="h-asof e-asof"><div class="hint" id="h-asof">Rules in force on this date are applied.</div><div class="err" id="e-asof"></div></div>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="primary">Run decision</button>
+            <button type="button" class="secondary" id="clear-form">Clear form</button>
+          </div>
+        </form>
+
+        <div class="sticky" id="intake-result" aria-live="polite">
+          <div class="empty">The decision appears here once you run an application.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SAMPLE CASES -->
+    <section role="tabpanel" id="p-samples" aria-labelledby="tab-samples" hidden>
+      <p class="lede">Six prepared applicants, each built to exercise a different branch of the engine. Run one here, or load it into Live intake to edit it.</p>
+      <div class="toolbar"><div class="field"><label for="s-asof">Evaluation date</label><input type="date" id="s-asof"></div></div>
+      <div class="scroll"><table class="data">
+        <thead><tr><th scope="col">Applicant</th><th scope="col">What it tests</th><th scope="col">Actions</th></tr></thead>
+        <tbody id="samples-body"></tbody></table></div>
+      <div id="sample-result" style="margin-top:24px" aria-live="polite"></div>
+    </section>
+
+    <!-- VERSIONING -->
+    <section role="tabpanel" id="p-versions" aria-labelledby="tab-versions" hidden>
+      <p class="lede">The same applicant, evaluated on two dates. Rules carry effective and expiry dates, so a policy change never rewrites history. The U.S. terminated its Syria sanctions program effective July 1, 2025, so OFAC-001 has a version before that date and a version after it.</p>
+      <div class="toolbar">
+        <div class="field"><label for="v-a">First date</label><input type="date" id="v-a" value="2025-06-01"></div>
+        <div class="field"><label for="v-b">Second date</label><input type="date" id="v-b" value="2025-07-01"></div>
+        <button type="button" class="primary" id="v-run">Compare dates</button>
+      </div>
+      <div class="compare" aria-live="polite"><div id="v-out-a"></div><div id="v-out-b"></div></div>
+    </section>
+
+    <!-- RULE LIBRARY -->
+    <section role="tabpanel" id="p-rules" aria-labelledby="tab-rules" hidden>
+      <p class="lede">Rules live as data, not code. Each one carries a version, dates, and the regulation it implements. Pick a date to see which versions are in force.</p>
+      <div class="toolbar"><div class="field"><label for="r-asof">Show rules in force on</label><input type="date" id="r-asof"></div></div>
+      <h3>Rule library, in precedence order</h3>
+      <div class="scroll"><table class="data">
+        <thead><tr><th scope="col">Rule</th><th scope="col">Status</th><th scope="col">Effective</th><th scope="col">Condition</th><th scope="col">Outcome</th><th scope="col">Source</th></tr></thead>
+        <tbody id="rules-body"></tbody></table></div>
+      <h3>Built-in outcomes</h3>
+      <div class="scroll"><table class="data">
+        <thead><tr><th scope="col">Rule</th><th scope="col">When it applies</th><th scope="col">Outcome</th><th scope="col">Source</th></tr></thead>
+        <tbody id="builtins-body"></tbody></table></div>
+      <h3>Suitability thresholds</h3>
+      <div class="scroll"><table class="data">
+        <thead><tr><th scope="col">Product</th><th scope="col">Minimum years</th><th scope="col">Minimum trades per year</th><th scope="col">Source</th></tr></thead>
+        <tbody id="suit-body"></tbody></table></div>
+    </section>
+
+    <!-- AUDIT LOG -->
+    <section role="tabpanel" id="p-audit" aria-labelledby="tab-audit" hidden>
+      <p class="lede">Every decision leaves a record: the policy and rule version that decided it, the cited source, the inputs the engine saw, and any warnings. Newest first.</p>
+      <div class="toolbar"><button type="button" class="secondary" id="audit-clear">Clear log</button></div>
+      <div id="audit-list" class="audit-list"></div>
+    </section>
+  </main>
+
+  <footer>Policy version <span id="pv"></span>. Built with a rules-as-data engine ported from the Python source.</footer>
+</div>
+
+<datalist id="countries"></datalist>
+
+<script>
+// ---- Onboarding Execution Engine v2 (JavaScript port) ----
+const POLICY_VERSION = "2026.09";
+
+const RULES = [
+  { rule_id: "OFAC-001", version: "1", effective_date: "2024-01-01", expiry_date: "2025-07-01",
+    source: "OFAC sanctions programs: Iran (31 CFR Part 560), North Korea (31 CFR Part 510), Syria (31 CFR Part 542), Cuba (31 CFR Part 515)",
+    field: "country_of_birth", operator: "in", value: ["Iran", "North Korea", "Syria", "Cuba"],
+    disposition: "escalate", reason: "Country of birth in sanctioned jurisdiction; escalate for sanctions review",
+    required_documents: ["enhanced_due_diligence_review"] },
+  { rule_id: "OFAC-001", version: "2", effective_date: "2025-07-01", expiry_date: null,
+    source: "OFAC sanctions programs: Iran (31 CFR Part 560), North Korea (31 CFR Part 510), Cuba (31 CFR Part 515); Syria program terminated by E.O. 14312",
+    field: "country_of_birth", operator: "in", value: ["Iran", "North Korea", "Cuba"],
+    disposition: "escalate", reason: "Country of birth in sanctioned jurisdiction; escalate for sanctions review",
+    required_documents: ["enhanced_due_diligence_review"] },
+  { rule_id: "CIP-002", version: "1", effective_date: "2024-01-01", expiry_date: null,
+    source: "State Uniform Transfers/Gifts to Minors Acts (UTMA/UGMA); state age-of-majority statutes",
+    field: "is_minor", operator: "equals", value: true,
+    disposition: "refer", reason: "Subject is below the age of majority for their state; custodial account required",
+    required_documents: ["UTMA_UGMA_custodial_setup", "custodian_identification"] },
+  { rule_id: "CIP-001", version: "1", effective_date: "2024-01-01", expiry_date: null,
+    source: "31 CFR 1023.220 (broker-dealer CIP); IRS Form W-8BEN (26 CFR 1.1441-1)",
+    field: "citizenship_status", operator: "equals", value: "non_resident_alien",
+    disposition: "refer", reason: "Non-resident alien requires additional CIP documentation",
+    required_documents: ["passport", "W-8BEN"] },
+];
+
+const BUILT_INS = [
+  { rule_id: "VAL-001", version: "1", when: "Any required field is missing (runs before all rules)",
+    disposition: "refer", source: "31 CFR 1023.220(a)(2) (minimum CIP identifying information: name, date of birth, address)" },
+  { rule_id: "CIP-000", version: "1", when: "No rule matches (default outcome)",
+    disposition: "clear", source: "31 CFR 1023.220 (CIP); FINRA Rule 2090 (Know Your Customer)" },
+];
+
+const AGE_OF_MAJORITY = { AL: 19, NE: 19, MS: 21 };
+const ageOfMajority = (s) => AGE_OF_MAJORITY[s] || 18;
+
+const VALID_PRODUCTS = ["cash_equities", "mutual_funds", "fixed_income", "options", "margin", "alternatives_futures"];
+const PRODUCT_LABELS = { cash_equities: "Cash equities", mutual_funds: "Mutual funds", fixed_income: "Fixed income",
+  options: "Options", margin: "Margin", alternatives_futures: "Alternatives and futures" };
+const SUITABILITY = {
+  cash_equities: [0, 0, "FINRA Rule 2111 (suitability); Reg BI"],
+  mutual_funds: [0, 0, "FINRA Rule 2111 (suitability); Reg BI"],
+  fixed_income: [0, 0, "FINRA Rule 2111 (suitability); Reg BI"],
+  options: [2, 10, "FINRA Rule 2360(b)(16) (options account approval)"],
+  margin: [2, 10, "FINRA Rule 4210; Regulation T (12 CFR Part 220)"],
+  alternatives_futures: [3, 20, "FINRA Rule 2111 (suitability); firm policy"],
+};
+
+function ageOn(dob, asOf) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob || "");
+  const n = /^(\d{4})-(\d{2})-(\d{2})$/.exec(asOf || "");
+  if (!m || !n) return null;
+  const [by, bm, bd] = [+m[1], +m[2], +m[3]];
+  const [ty, tm, td] = [+n[1], +n[2], +n[3]];
+  return ty - by - ((tm < bm || (tm === bm && td < bd)) ? 1 : 0);
+}
+
+function activeRules(asOf) {
+  const chosen = {}; const order = [];
+  for (const r of RULES) {
+    if (r.effective_date > asOf) continue;
+    if (r.expiry_date && asOf >= r.expiry_date) continue;
+    if (!(r.rule_id in chosen)) { order.push(r.rule_id); chosen[r.rule_id] = r; }
+    else if (+r.version > +chosen[r.rule_id].version) chosen[r.rule_id] = r;
+  }
+  return order.map((id) => chosen[id]);
+}
+
+function isInForce(r, asOf) {
+  return r.effective_date <= asOf && !(r.expiry_date && asOf >= r.expiry_date)
+    && activeRules(asOf).includes(r);
+}
+
+function resolveField(c, field, asOf) {
+  if (field === "is_minor") {
+    const a = ageOn(c.date_of_birth, asOf);
+    return [true, a === null ? null : a < ageOfMajority(c.state_of_residence)];
+  }
+  if (field in c) return [true, c[field]];
+  return [false, null];
+}
+
+function checkCondition(c, r, asOf, warnings) {
+  const [found, v] = resolveField(c, r.field, asOf);
+  if (!found) { warnings.push(`rule ${r.rule_id} v${r.version} references unknown field '${r.field}'; skipped`); return false; }
+  switch (r.operator) {
+    case "equals": return v === r.value;
+    case "not_equals": return v !== r.value;
+    case "in": return r.value.includes(v);
+    case "not_in": return !r.value.includes(v);
+    case "less_than": return v !== null && v < r.value;
+    case "greater_than_or_equal": return v !== null && v >= r.value;
+  }
+  warnings.push(`rule ${r.rule_id} v${r.version} uses unknown operator '${r.operator}'; skipped`);
+  return false;
+}
+
+const REQUIRED_FIELDS = [
+  ["name", "Name", () => true],
+  ["date_of_birth", "Date of birth", () => true],
+  ["country_of_birth", "Country of birth", () => true],
+  ["citizenship_status", "Citizenship status", () => true],
+  ["residential_address", "Residential address", () => true],
+  ["state_of_residence", "State of residence", (c) => c.citizenship_status !== "non_resident_alien"],
+];
+
+function missingFields(c) {
+  return REQUIRED_FIELDS.filter(([attr, , applies]) => applies(c)
+    && (c[attr] === null || c[attr] === undefined || String(c[attr]).trim() === ""))
+    .map(([, label]) => label);
+}
+
+function evaluate(c, asOf) {
+  const warnings = [];
+  const missing = missingFields(c);
+  if (missing.length) {
+    return { warnings, decision: { disposition: "refer", rule_id: "VAL-001", rule_version: "1",
+      reason: "Incomplete application — required field(s) missing: " + missing.join(", "),
+      source: BUILT_INS[0].source, required_documents: ["completed_application"] } };
+  }
+  for (const r of activeRules(asOf)) {
+    if (checkCondition(c, r, asOf, warnings)) {
+      return { warnings, decision: { disposition: r.disposition, rule_id: r.rule_id, rule_version: r.version,
+        reason: r.reason, source: r.source, required_documents: r.required_documents } };
+    }
+  }
+  return { warnings, decision: { disposition: "clear", rule_id: "CIP-000", rule_version: "1",
+    reason: "No matching rule; standard onboarding", source: BUILT_INS[1].source, required_documents: [] } };
+}
+
+function assessSuitability(c) {
+  const out = {};
+  for (const p of VALID_PRODUCTS) {
+    const [minY, minT, source] = SUITABILITY[p];
+    const e = (c.investment_experience || {})[p] || { years: 0, trades_per_year: 0 };
+    const ok = e.years >= minY && e.trades_per_year >= minT;
+    let reason;
+    if (ok && minY === 0 && minT === 0) reason = "No experience threshold for this product";
+    else reason = `${ok ? "Meets" : "Below"} threshold (${e.years}y / ${e.trades_per_year} trades vs required ${minY}y / ${minT})`;
+    out[p] = { eligible: ok, reason, source };
+  }
+  return out;
+}
+
+function onboard(c, asOf) {
+  const { decision, warnings } = evaluate(c, asOf);
+  const record = {
+    evaluated_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+    evaluation_date: asOf,
+    policy_version: POLICY_VERSION,
+    subject: c.name || "(unnamed applicant)",
+    disposition: decision.disposition,
+    rule_id: decision.rule_id,
+    rule_version: decision.rule_version,
+    source: decision.source,
+    reason: decision.reason,
+    required_documents: decision.required_documents,
+    warnings,
+    inputs: JSON.parse(JSON.stringify(c)),
+  };
+  if (decision.disposition === "clear" || decision.disposition === "escalate") {
+    record.suitability = assessSuitability(c);
+  }
+  return record;
+}
+
+const exp = (pairs) => Object.fromEntries(Object.entries(pairs).map(([k, [y, t]]) => [k, { years: y, trades_per_year: t }]));
+const PERSONAS = [
+  { id: "maria", note: "Green-card holder, experienced trader", c: { name: "Maria Chen", date_of_birth: "1985-03-12", country_of_birth: "United States",
+    citizenship_status: "green_card", residential_address: "1200 Oak St, Salt Lake City, UT 84101", mailing_address: "1200 Oak St, Salt Lake City, UT 84101",
+    state_of_residence: "UT", occupation: "Software Engineer", employer: "Tech Corp", source_of_funds: "Employment income",
+    source_of_wealth: "Salary and equity compensation", investment_experience: exp({ cash_equities: [15, 50], options: [5, 30] }),
+    account_purpose: "Long-term investing", is_broker_dealer: false } },
+  { id: "kenji", note: "Non-resident alien living in Tokyo", c: { name: "Kenji Tanaka", date_of_birth: "1979-08-22", country_of_birth: "Japan",
+    citizenship_status: "non_resident_alien", residential_address: "4-1 Chiyoda, Tokyo, Japan", mailing_address: "4-1 Chiyoda, Tokyo, Japan",
+    state_of_residence: null, occupation: "Business Owner", employer: "Tanaka Trading K.K.", source_of_funds: "Business income",
+    source_of_wealth: "Ownership of trading company", investment_experience: exp({ cash_equities: [20, 100] }),
+    account_purpose: "Portfolio diversification", is_broker_dealer: false } },
+  { id: "farid", note: "US citizen born in a sanctioned jurisdiction", c: { name: "Farid Hosseini", date_of_birth: "1980-05-01", country_of_birth: "Iran",
+    citizenship_status: "citizen", residential_address: "500 Main St, Salt Lake City, UT 84101", mailing_address: "500 Main St, Salt Lake City, UT 84101",
+    state_of_residence: "UT", occupation: "Physician", employer: "Regional Hospital", source_of_funds: "Employment income",
+    source_of_wealth: "Medical practice", investment_experience: exp({ cash_equities: [8, 20] }),
+    account_purpose: "Retirement investing", is_broker_dealer: false } },
+  { id: "taylor", note: "20-year-old in Mississippi, where majority is 21", c: { name: "Taylor Brooks", date_of_birth: "2006-06-15", country_of_birth: "United States",
+    citizenship_status: "citizen", residential_address: "9 Elm St, Jackson, MS 39201", mailing_address: "9 Elm St, Jackson, MS 39201",
+    state_of_residence: "MS", occupation: "Student", employer: "N/A", source_of_funds: "Gift", source_of_wealth: "Family gift",
+    investment_experience: {}, account_purpose: "Custodial savings", is_broker_dealer: false } },
+  { id: "layla", note: "Born in Syria; outcome depends on the evaluation date", c: { name: "Layla Haddad", date_of_birth: "1988-11-02", country_of_birth: "Syria",
+    citizenship_status: "citizen", residential_address: "77 State St, Salt Lake City, UT 84111", mailing_address: "77 State St, Salt Lake City, UT 84111",
+    state_of_residence: "UT", occupation: "Architect", employer: "Design Studio LLC", source_of_funds: "Employment income", source_of_wealth: "Salary",
+    investment_experience: exp({ cash_equities: [6, 12] }), account_purpose: "Long-term investing", is_broker_dealer: false } },
+  { id: "jordan", note: "Application submitted without a date of birth", c: { name: "Jordan Reyes", date_of_birth: "", country_of_birth: "United States",
+    citizenship_status: "citizen", residential_address: "310 Pine Ave, Provo, UT 84601", mailing_address: "310 Pine Ave, Provo, UT 84601",
+    state_of_residence: "UT", occupation: "Teacher", employer: "Provo School District", source_of_funds: "Employment income", source_of_wealth: "Salary",
+    investment_experience: {}, account_purpose: "General investing", is_broker_dealer: false } },
+];
+
+
+
+</script>
+<script>
+(function () {
+  "use strict";
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  const pad = (n) => String(n).padStart(2, "0");
+  const d = new Date();
+  const TODAY = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || "") && !isNaN(new Date(s + "T00:00:00").getTime());
+
+  const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
+  const COUNTRIES = ["United States","Canada","Mexico","United Kingdom","Germany","France","Italy","Spain","Netherlands","Ireland","Sweden","Switzerland","India","China","Japan","South Korea","Philippines","Vietnam","Pakistan","Brazil","Argentina","Colombia","Nigeria","Kenya","South Africa","Egypt","Israel","Turkey","Russia","Ukraine","Australia","New Zealand","Iran","North Korea","Cuba","Syria"];
+  const DISP_LABEL = { clear: "Clear", refer: "Refer", escalate: "Escalate", block: "Block" };
+
+  $("#pv").textContent = POLICY_VERSION;
+  $("#countries").innerHTML = COUNTRIES.map((c) => `<option value="${esc(c)}">`).join("");
+  $("#f-state").innerHTML = `<option value="">Select a state</option>` + STATES.map((s) => `<option>${s}</option>`).join("");
+  $("#exp-table tbody").innerHTML = VALID_PRODUCTS.map((p) => `
+    <tr><td>${esc(PRODUCT_LABELS[p])}</td>
+      <td><input type="number" min="0" max="80" step="1" inputmode="numeric" value="0" data-p="${p}" data-k="years" aria-label="${esc(PRODUCT_LABELS[p])} years of experience"></td>
+      <td><input type="number" min="0" max="5000" step="1" inputmode="numeric" value="0" data-p="${p}" data-k="trades_per_year" aria-label="${esc(PRODUCT_LABELS[p])} trades per year"></td></tr>`).join("");
+  ["#f-asof", "#s-asof", "#r-asof"].forEach((id) => { $(id).value = TODAY; });
+
+  /* ---------- tabs ---------- */
+  const tabs = $$('[role="tab"]');
+  function selectTab(tab, focus) {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.setAttribute("aria-selected", on ? "true" : "false");
+      t.tabIndex = on ? 0 : -1;
+      $("#" + t.getAttribute("aria-controls")).hidden = !on;
+    });
+    if (focus) tab.focus();
+    if (tab.id === "tab-audit") renderAudit();
+    if (tab.id === "tab-rules") renderRules();
+    if (tab.id === "tab-versions") runCompare();
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener("click", () => selectTab(t));
+    t.addEventListener("keydown", (e) => {
+      let j = null;
+      if (e.key === "ArrowRight") j = (i + 1) % tabs.length;
+      if (e.key === "ArrowLeft") j = (i - 1 + tabs.length) % tabs.length;
+      if (e.key === "Home") j = 0;
+      if (e.key === "End") j = tabs.length - 1;
+      if (j !== null) { e.preventDefault(); selectTab(tabs[j], true); }
+    });
+  });
+
+  /* ---------- audit log (in-memory, remembered in this browser when allowed) ---------- */
+  let AUDIT = [];
+  try { AUDIT = JSON.parse(localStorage.getItem("oee-audit") || "[]"); if (!Array.isArray(AUDIT)) AUDIT = []; } catch (e) { AUDIT = []; }
+  function saveAudit() { try { localStorage.setItem("oee-audit", JSON.stringify(AUDIT.slice(0, 100))); } catch (e) { /* storage unavailable */ } }
+  function logRecord(r) { AUDIT.unshift(r); saveAudit(); $("#audit-count").textContent = AUDIT.length; }
+  $("#audit-count").textContent = AUDIT.length;
+
+  /* ---------- case file renderer ---------- */
+  function caseFile(r, opts) {
+    opts = opts || {};
+    const disp = r.disposition;
+    const age = ageOn(r.inputs.date_of_birth, r.evaluation_date);
+    const docs = r.required_documents.length
+      ? `<ul class="docs">${r.required_documents.map((x) => `<li>${esc(x.replace(/_/g, " "))}</li>`).join("")}</ul>` : "None";
+    let suit = "";
+    if (r.suitability) {
+      suit = `<h3>Product suitability</h3><div style="overflow-x:auto"><table class="suit"><thead><tr><th>Product</th><th>Status</th><th>Basis</th></tr></thead><tbody>` +
+        VALID_PRODUCTS.map((p) => { const s = r.suitability[p];
+          return `<tr><td>${esc(PRODUCT_LABELS[p])}</td><td><span class="pill ${s.eligible ? "bg-clear d-clear" : "bg-refer d-refer"}">${s.eligible ? "Eligible" : "Not eligible"}</span></td><td>${esc(s.reason)}<br><span class="hint">${esc(s.source)}</span></td></tr>`; }).join("") +
+        `</tbody></table></div>`;
+    } else if (disp === "refer") {
+      suit = `<p class="hint" style="margin-top:14px">Suitability isn't assessed until the referral is resolved.</p>`;
+    }
+    const warn = r.warnings.length ? `<h3>Warnings</h3><ul class="warnings">${r.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : "";
+    const json = esc(JSON.stringify(r, null, 2));
+    return `<article class="panel casefile">
+      <p class="who">${esc(r.subject)}</p>
+      <p class="meta">${age === null ? "Age unknown" : "Age " + age}, ${esc((r.inputs.citizenship_status || "status unknown").replace(/_/g, " "))}, born ${esc(r.inputs.country_of_birth || "unknown")}</p>
+      <div class="stamp d-${disp} ${opts.fresh ? "fresh" : ""}" role="status">${DISP_LABEL[disp]}</div>
+      <p class="ruling">${esc(r.reason)}</p>
+      <dl class="facts">
+        <dt>Rule</dt><dd>${esc(r.rule_id)} version ${esc(r.rule_version)}</dd>
+        <dt>Source</dt><dd>${esc(r.source)}</dd>
+        <dt>Evaluated for</dt><dd>${esc(r.evaluation_date)}, policy ${esc(r.policy_version)}</dd>
+        <dt>Documents needed</dt><dd>${docs}</dd>
+      </dl>
+      ${suit}${warn}
+      <details class="json"><summary>View audit record</summary><pre>${json}</pre>
+        <button type="button" class="secondary small copy-json" style="margin-top:10px">Copy JSON</button><span class="copied" aria-live="polite"></span></details>
+    </article>`;
+  }
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest(".copy-json"); if (!b) return;
+    const pre = b.parentElement.querySelector("pre"); const note = b.nextElementSibling;
+    try { await navigator.clipboard.writeText(pre.textContent); note.textContent = "Copied"; }
+    catch (err) { const range = document.createRange(); range.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range); note.textContent = "Selected. Press Ctrl+C or Cmd+C to copy."; }
+    setTimeout(() => { note.textContent = ""; }, 3000);
+  });
+
+  /* ---------- intake validation ---------- */
+  const nameRe = /^[A-Za-z][A-Za-z .'\-]{1,79}$/;
+  const textRe = /^[A-Za-z][A-Za-z .,'&\-]{1,79}$/;
+  const V = {
+    name: () => { const v = $("#f-name").value.trim();
+      if (!v) return "Enter the applicant's full legal name.";
+      if (!nameRe.test(v)) return "Use letters, spaces, hyphens, and apostrophes only.";
+      if (!/\s/.test(v)) return "Enter both a first and last name."; return ""; },
+    dob: () => { const v = $("#f-dob").value;
+      if (!v) return "Enter a date of birth. CIP requires it to open the account.";
+      if (!isDate(v)) return "Enter a valid date.";
+      if (v > TODAY) return "Date of birth can't be in the future.";
+      if (v < "1900-01-01") return "Enter a date after January 1, 1900."; return ""; },
+    country: () => { const v = $("#f-country").value.trim();
+      if (!v) return "Enter the country of birth.";
+      if (!textRe.test(v)) return "Use letters and spaces only, for example United States."; return ""; },
+    cit: () => $("#f-cit").value ? "" : "Select a citizenship status.",
+    res: () => { const v = $("#f-res").value.trim();
+      if (!v) return "Enter a residential address.";
+      if (v.length < 8 || !/\d/.test(v)) return "Enter a full street address, including a street number.";
+      if (/\bp\.?\s*o\.?\s*box\b/i.test(v)) return "A P.O. box can't be a residential address. Use it as the mailing address instead."; return ""; },
+    mail: () => { if ($("#f-same").checked) return ""; const v = $("#f-mail").value.trim();
+      if (!v) return "Enter a mailing address, or check that it's the same as the residential address.";
+      if (v.length < 8) return "Enter a complete mailing address."; return ""; },
+    state: () => { if ($("#f-cit").value === "non_resident_alien") return "";
+      const v = $("#f-state").value; if (!v) return "Select the state of residence."; if (!STATES.includes(v)) return "Select a valid U.S. state."; return ""; },
+    occ: () => $("#f-occ").value.trim().length >= 2 ? "" : "Enter an occupation. Know-your-customer rules require it.",
+    emp: () => $("#f-emp").value.trim().length >= 2 ? "" : "Enter an employer, or N/A if not employed.",
+    sof: () => $("#f-sof").value.trim().length >= 2 ? "" : "Enter the source of funds for this account.",
+    sow: () => $("#f-sow").value.trim().length >= 2 ? "" : "Enter how the applicant built their wealth.",
+    purpose: () => $("#f-purpose").value.trim().length >= 2 ? "" : "Enter the purpose of the account.",
+    bd: () => document.querySelector('input[name="is_broker_dealer"]:checked') ? "" : "Select yes or no.",
+    exp: () => {
+      const age = isDate($("#f-dob").value) ? ageOn($("#f-dob").value, TODAY) : null;
+      for (const inp of $$("#exp-table input")) {
+        const raw = inp.value.trim(); const n = Number(raw);
+        const max = inp.dataset.k === "years" ? 80 : 5000;
+        const bad = raw === "" || !Number.isInteger(n) || n < 0 || n > max;
+        inp.setAttribute("aria-invalid", bad ? "true" : "false");
+        if (bad) return `${PRODUCT_LABELS[inp.dataset.p]}: enter a whole number from 0 to ${max}.`;
+        if (inp.dataset.k === "years" && age !== null && n > age) {
+          inp.setAttribute("aria-invalid", "true");
+          return `${PRODUCT_LABELS[inp.dataset.p]}: ${n} years of experience exceeds the applicant's age of ${age}.`;
+        }
+      }
+      return ""; },
+    asof: () => { const v = $("#f-asof").value; if (!v || !isDate(v)) return "Enter a valid evaluation date."; if (v < "2024-01-01") return "Rules in this library start January 1, 2024. Pick a date on or after it."; return ""; },
+  };
+  const FIELD = { name: "#f-name", dob: "#f-dob", country: "#f-country", cit: "#f-cit", res: "#f-res", mail: "#f-mail",
+    state: "#f-state", occ: "#f-occ", emp: "#f-emp", sof: "#f-sof", sow: "#f-sow", purpose: "#f-purpose", asof: "#f-asof" };
+  const LABEL = { name: "Full legal name", dob: "Date of birth", country: "Country of birth", cit: "Citizenship status", res: "Residential address",
+    mail: "Mailing address", state: "State of residence", occ: "Occupation", emp: "Employer", sof: "Source of funds", sow: "Source of wealth",
+    purpose: "Account purpose", bd: "Broker-dealer association", exp: "Investment experience", asof: "Evaluation date" };
+  const touched = new Set();
+  function check(key, force) {
+    if (!force && !touched.has(key)) return true;
+    const msg = V[key]();
+    $("#e-" + key).textContent = msg;
+    if (FIELD[key]) $(FIELD[key]).setAttribute("aria-invalid", msg ? "true" : "false");
+    return !msg;
+  }
+  Object.entries(FIELD).forEach(([k, sel]) => {
+    const el = $(sel);
+    el.addEventListener("blur", () => { touched.add(k); check(k); });
+    el.addEventListener("input", () => check(k));
+    el.addEventListener("change", () => { touched.add(k); check(k); });
+  });
+  $$('input[name="is_broker_dealer"]').forEach((r) => r.addEventListener("change", () => { touched.add("bd"); check("bd"); }));
+  $$("#exp-table input").forEach((i) => { i.addEventListener("input", () => { touched.add("exp"); check("exp"); }); });
+  $("#f-dob").addEventListener("change", () => { if (touched.has("exp")) check("exp"); });
+
+  function syncNRA() {
+    const nra = $("#f-cit").value === "non_resident_alien";
+    $("#f-state").disabled = nra;
+    if (nra) { $("#f-state").value = ""; $("#e-state").textContent = ""; $("#f-state").setAttribute("aria-invalid", "false"); }
+  }
+  $("#f-cit").addEventListener("change", syncNRA);
+  $("#f-same").addEventListener("change", () => {
+    $("#mail-wrap").hidden = $("#f-same").checked;
+    if ($("#f-same").checked) { $("#e-mail").textContent = ""; $("#f-mail").setAttribute("aria-invalid", "false"); }
+  });
+
+  function readCase() {
+    const exp = {};
+    $$("#exp-table input").forEach((i) => {
+      const n = Number(i.value) || 0; exp[i.dataset.p] = exp[i.dataset.p] || { years: 0, trades_per_year: 0 }; exp[i.dataset.p][i.dataset.k] = n;
+    });
+    Object.keys(exp).forEach((p) => { if (!exp[p].years && !exp[p].trades_per_year) delete exp[p]; });
+    const nra = $("#f-cit").value === "non_resident_alien";
+    const res = $("#f-res").value.trim();
+    return {
+      name: $("#f-name").value.trim(), date_of_birth: $("#f-dob").value, country_of_birth: $("#f-country").value.trim(),
+      citizenship_status: $("#f-cit").value, residential_address: res,
+      mailing_address: $("#f-same").checked ? res : $("#f-mail").value.trim(),
+      state_of_residence: nra ? null : $("#f-state").value, occupation: $("#f-occ").value.trim(), employer: $("#f-emp").value.trim(),
+      source_of_funds: $("#f-sof").value.trim(), source_of_wealth: $("#f-sow").value.trim(), investment_experience: exp,
+      account_purpose: $("#f-purpose").value.trim(),
+      is_broker_dealer: (document.querySelector('input[name="is_broker_dealer"]:checked') || {}).value === "yes",
+    };
+  }
+
+  $("#intake").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const keys = Object.keys(V); const bad = [];
+    keys.forEach((k) => { touched.add(k); if (!check(k, true)) bad.push(k); });
+    const sum = $("#summary");
+    if (bad.length) {
+      sum.innerHTML = `<p>Fix ${bad.length} field${bad.length > 1 ? "s" : ""} before running the decision.</p><ul>` +
+        bad.map((k) => `<li><a href="#" data-k="${k}">${LABEL[k]}</a>: ${esc($("#e-" + k).textContent)}</li>`).join("") + `</ul>`;
+      sum.hidden = false; sum.focus(); return;
+    }
+    sum.hidden = true;
+    const rec = onboard(readCase(), $("#f-asof").value);
+    logRecord(rec);
+    $("#intake-result").innerHTML = caseFile(rec, { fresh: true });
+    if (window.matchMedia("(max-width: 900px)").matches) $("#intake-result").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  $("#summary").addEventListener("click", (e) => {
+    const a = e.target.closest("a[data-k]"); if (!a) return; e.preventDefault();
+    const k = a.dataset.k;
+    const target = FIELD[k] ? $(FIELD[k]) : k === "bd" ? $('input[name="is_broker_dealer"]') : $("#exp-table input");
+    target.focus();
+  });
+
+  function resetForm() {
+    $("#intake").reset(); touched.clear();
+    $$(".err", $("#intake")).forEach((x) => { x.textContent = ""; });
+    $$("[aria-invalid]", $("#intake")).forEach((x) => x.setAttribute("aria-invalid", "false"));
+    $("#f-asof").value = TODAY; $("#summary").hidden = true; $("#mail-wrap").hidden = true; syncNRA();
+  }
+  $("#clear-form").addEventListener("click", () => {
+    resetForm();
+    $("#intake-result").innerHTML = `<div class="empty">The decision appears here once you run an application.</div>`;
+  });
+
+  function loadIntoIntake(c) {
+    resetForm();
+    $("#f-name").value = c.name || ""; $("#f-dob").value = c.date_of_birth || ""; $("#f-country").value = c.country_of_birth || "";
+    $("#f-cit").value = c.citizenship_status || ""; syncNRA();
+    $("#f-res").value = c.residential_address || "";
+    const same = !c.mailing_address || c.mailing_address === c.residential_address;
+    $("#f-same").checked = same; $("#mail-wrap").hidden = same; if (!same) $("#f-mail").value = c.mailing_address;
+    if (c.state_of_residence) $("#f-state").value = c.state_of_residence;
+    $("#f-occ").value = c.occupation || ""; $("#f-emp").value = c.employer || ""; $("#f-sof").value = c.source_of_funds || "";
+    $("#f-sow").value = c.source_of_wealth || ""; $("#f-purpose").value = c.account_purpose || "";
+    const r = document.querySelector(`input[name="is_broker_dealer"][value="${c.is_broker_dealer ? "yes" : "no"}"]`); if (r) r.checked = true;
+    $$("#exp-table input").forEach((i) => { const e = (c.investment_experience || {})[i.dataset.p]; i.value = e ? e[i.dataset.k] : 0; });
+    $("#intake-result").innerHTML = `<div class="empty">${esc(c.name)} is loaded. Adjust any field, then run the decision.</div>`;
+    selectTab($("#tab-intake"), true);
+    Object.keys(V).forEach((k) => { touched.add(k); check(k, true); });
+  }
+
+  /* ---------- sample cases ---------- */
+  $("#samples-body").innerHTML = PERSONAS.map((p) => `
+    <tr><td class="name">${esc(p.c.name)}</td><td>${esc(p.note)}</td>
+      <td><div class="btns"><button type="button" class="primary small" data-run="${p.id}">Run case</button>
+      <button type="button" class="secondary small" data-load="${p.id}">Load into intake</button></div></td></tr>`).join("");
+  $("#samples-body").addEventListener("click", (e) => {
+    const run = e.target.closest("[data-run]"); const load = e.target.closest("[data-load]");
+    if (run) {
+      const asOf = isDate($("#s-asof").value) && $("#s-asof").value >= "2024-01-01" ? $("#s-asof").value : TODAY;
+      $("#s-asof").value = asOf;
+      const p = PERSONAS.find((x) => x.id === run.dataset.run);
+      const rec = onboard(p.c, asOf); logRecord(rec);
+      $("#sample-result").innerHTML = caseFile(rec, { fresh: true });
+      $("#sample-result").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    if (load) loadIntoIntake(PERSONAS.find((x) => x.id === load.dataset.load).c);
+  });
+
+  /* ---------- versioning ---------- */
+  function runCompare() {
+    const layla = PERSONAS.find((p) => p.id === "layla").c;
+    [["#v-a", "#v-out-a"], ["#v-b", "#v-out-b"]].forEach(([inp, out]) => {
+      const v = $(inp).value;
+      if (!isDate(v) || v < "2024-01-01") { $(out).innerHTML = `<div class="empty">Enter a date on or after January 1, 2024.</div>`; return; }
+      $(out).innerHTML = caseFile(onboard(layla, v), { fresh: true });
+    });
+  }
+  $("#v-run").addEventListener("click", runCompare);
+
+  /* ---------- rule library ---------- */
+  const condText = (r) => {
+    const f = { country_of_birth: "Country of birth", is_minor: "Applicant is a minor in their state", citizenship_status: "Citizenship status" }[r.field] || r.field;
+    if (r.operator === "in") return `${f} is one of: ${r.value.join(", ")}`;
+    if (r.field === "is_minor") return f;
+    return `${f} is ${String(r.value).replace(/_/g, " ")}`;
+  };
+  function renderRules() {
+    let asOf = $("#r-asof").value; if (!isDate(asOf)) { asOf = TODAY; $("#r-asof").value = asOf; }
+    const live = activeRules(asOf);
+    $("#rules-body").innerHTML = RULES.map((r) => {
+      const on = live.includes(r);
+      return `<tr class="${on ? "" : "off"}"><td class="name">${esc(r.rule_id)} v${esc(r.version)}</td>
+        <td><span class="pill ${on ? "bg-clear d-clear" : ""}" style="${on ? "" : "background:var(--line);color:var(--muted)"}">${on ? "In force" : "Not in force"}</span></td>
+        <td>${esc(r.effective_date)}${r.expiry_date ? " to " + esc(r.expiry_date) : " onward"}</td>
+        <td>${esc(condText(r))}</td><td><span class="d-${r.disposition}" style="font-weight:700">${DISP_LABEL[r.disposition]}</span><br><span class="hint">${esc(r.required_documents.join(", ").replace(/_/g, " "))}</span></td>
+        <td>${esc(r.source)}</td></tr>`;
+    }).join("");
+    $("#builtins-body").innerHTML = BUILT_INS.map((b) => `<tr><td class="name">${esc(b.rule_id)} v${esc(b.version)}</td><td>${esc(b.when)}</td>
+      <td><span class="d-${b.disposition}" style="font-weight:700">${DISP_LABEL[b.disposition]}</span></td><td>${esc(b.source)}</td></tr>`).join("");
+    $("#suit-body").innerHTML = VALID_PRODUCTS.map((p) => { const [y, t, s] = SUITABILITY[p];
+      return `<tr><td class="name">${esc(PRODUCT_LABELS[p])}</td><td>${y}</td><td>${t}</td><td>${esc(s)}</td></tr>`; }).join("");
+  }
+  $("#r-asof").addEventListener("change", renderRules);
+
+  /* ---------- audit tab ---------- */
+  function renderAudit() {
+    const box = $("#audit-list");
+    if (!AUDIT.length) { box.innerHTML = `<div class="empty">No decisions yet. Run an applicant from Live intake or Sample cases to create a record.</div>`; return; }
+    box.innerHTML = AUDIT.map((r) => `<details><summary>
+        <span class="s-name">${esc(r.subject)}</span>
+        <span class="pill bg-${r.disposition} d-${r.disposition}">${DISP_LABEL[r.disposition]}</span>
+        <span class="s-meta">${esc(r.rule_id)} v${esc(r.rule_version)}, evaluated for ${esc(r.evaluation_date)}, logged ${esc(r.evaluated_at.replace("T", " ").replace("Z", " UTC"))}</span>
+      </summary><pre>${esc(JSON.stringify(r, null, 2))}</pre>
+      <button type="button" class="secondary small copy-json" style="margin-top:10px">Copy JSON</button><span class="copied" aria-live="polite"></span></details>`).join("");
+  }
+  $("#audit-clear").addEventListener("click", () => { AUDIT = []; saveAudit(); $("#audit-count").textContent = "0"; renderAudit(); });
+
+  syncNRA();
+})();
+</script>
+</body>
+</html>
